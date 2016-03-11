@@ -1,22 +1,31 @@
 import json
-import os
 import urlparse
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from pprint import pprint
 
 class StateHandler(BaseHTTPRequestHandler):
-    def __init__(self, request, client_address, server):
-        BaseHTTPRequestHandler.__init__(self, request, client_address, server)
+
+    def log_request(self, code='-', size='-'):
+        pass
+    def log_error(self, format, *args):
+        pass
+    def log_message(self, format, *args):
+        pass
 
     def do_POST(self):
         self.data_string = self.rfile.read(int(self.headers['Content-Length']))
         self.send_header("Content-type", "text/html")
-        self.send_response(200)
-        self.end_headers()
-        data = urlparse.parse_qs(self.data_string)
-        service = GeoLocationService()
-        res = service.check_point(float(data['longitude'][0]),float(data['latitude'][0]))
-        self.wfile.write('{0}\n'.format(res))
+
+        try:
+            data = urlparse.parse_qs(self.data_string)
+            service = GeoLocationService()
+            res = service.check_point(float(data['longitude'][0]),float(data['latitude'][0]))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write('{0}\n'.format(res))
+        except:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write('Please provide valid longitude and latitude\n')
         return
 
 class GeoLocationService:
@@ -25,15 +34,27 @@ class GeoLocationService:
         self.stateList = self.load_data()
 
     def load_data(self):
+        """
+        Loads data from states.json
+        Into self.stateList
+        state.json should be in the following format:
+        {"state": "state name", "border": [[longitude, latitude], [longitude,latitude],..]}
+        """
         with open("states.json") as file:
             return [json.loads(x.strip('\n')) for x in file.readlines()]
 
-    def check_point(self,x,y):
+    def check_point(self,longitude,latitude):
+        """
+        :return: first state name that contains the point.
+        """
         for state in self.stateList:
-            if self.point_inside_polygon(x,y,state['border']):
+            if self.point_inside_polygon(longitude,latitude,state['border']):
                 return state['state']
 
     def point_inside_polygon(self,x,y,poly):
+        """
+        :return: True if point is inside polygon.
+        """
 
         n = len(poly)
         inside =False
